@@ -1,7 +1,9 @@
 package com.saber.springbatchtest.config;
 
+import com.saber.springbatchtest.dto.Customer;
 import com.saber.springbatchtest.dto.Person;
 import com.saber.springbatchtest.job.JobCompletionNotificationListener;
+import com.saber.springbatchtest.processor.CustomerProcessor;
 import com.saber.springbatchtest.processor.PersonItemProcessor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -22,7 +24,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
 import org.springframework.core.io.WritableResource;
 import org.springframework.oxm.Marshaller;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
@@ -32,23 +33,28 @@ import javax.sql.DataSource;
 
 @Configuration
 public class BatchConfig {
-    @Value("file:xml/output.xml")
-    private WritableResource outputXml;
+//    @Value("file:xml/output.xml")
+//    private WritableResource outputXml;
 
     @Bean
     public PersonItemProcessor processor() {
         return new PersonItemProcessor();
     }
+    @Bean
+    public CustomerProcessor customerProcessor() {
+        return new CustomerProcessor();
+    }
 
     @Bean
-    public FlatFileItemReader<Person> reader() {
-        return new FlatFileItemReaderBuilder<Person>()
+    public FlatFileItemReader<Customer> reader() {
+        return new FlatFileItemReaderBuilder<Customer>()
                 .name("personItemReader")
-                .resource(new ClassPathResource("sample-data.csv"))
+                .resource(new ClassPathResource("customers.csv"))
                 .delimited()
-                .names("firstName", "lastName")
+                .names("id", "firstName", "lastName", "email", "gender", "contractNo"
+                        , "country", "dob")
                 .fieldSetMapper(new BeanWrapperFieldSetMapper<>() {{
-                    setTargetType(Person.class);
+                    setTargetType(Customer.class);
                 }})
                 .build();
     }
@@ -60,10 +66,10 @@ public class BatchConfig {
      It includes the SQL statement needed to insert a single Person, driven by Java bean properties.
      */
     @Bean
-    public JdbcBatchItemWriter<Person> writer(DataSource dataSource) {
-        return new JdbcBatchItemWriterBuilder<Person>()
+    public JdbcBatchItemWriter<Customer> writer(DataSource dataSource) {
+        return new JdbcBatchItemWriterBuilder<Customer>()
                 .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
-                .sql("insert into people (first_name,last_name) values (:firstName,:lastName)")
+                .sql("insert into customers(contractNo, country, dob, email, firstName, gender, lastName) values (:contractNo, :country, :dob, :email, :firstName, :gender, :lastName)")
                 .dataSource(dataSource)
                 .build();
     }
@@ -75,14 +81,14 @@ public class BatchConfig {
         return marshaller;
     }
 
-    @Bean(name = "personItemWriterXml")
-    public ItemWriter<Person> personItemWriterXml(Marshaller marshaller) {
-        StaxEventItemWriter<Person> staxEventItemWriter = new StaxEventItemWriter<>();
-        staxEventItemWriter.setMarshaller(marshaller);
-        staxEventItemWriter.setRootTagName("Person");
-        staxEventItemWriter.setResource(outputXml);
-        return staxEventItemWriter;
-    }
+//    @Bean(name = "personItemWriterXml")
+//    public ItemWriter<Person> personItemWriterXml(Marshaller marshaller) {
+//        StaxEventItemWriter<Person> staxEventItemWriter = new StaxEventItemWriter<>();
+//        staxEventItemWriter.setMarshaller(marshaller);
+//        staxEventItemWriter.setRootTagName("Person");
+//        staxEventItemWriter.setResource(outputXml);
+//        return staxEventItemWriter;
+//    }
 
 
     @Bean(name = "importUserJob")
@@ -96,32 +102,32 @@ public class BatchConfig {
                 .build();
     }
 
-    @Bean(name = "jobPersonXml")
-    public Job jobXml(JobRepository jobRepository, @Qualifier(value = "stepXml") Step stepXml) {
-        return new JobBuilder("jobPersonXml", jobRepository).flow(stepXml).end()
-                .build();
-    }
+//    @Bean(name = "jobPersonXml")
+//    public Job jobXml(JobRepository jobRepository, @Qualifier(value = "stepXml") Step stepXml) {
+//        return new JobBuilder("jobPersonXml", jobRepository).flow(stepXml).end()
+//                .build();
+//    }
 
     @Bean
     public Step step1(JobRepository jobRepository, PlatformTransactionManager transactionManager,
-                      JdbcBatchItemWriter<Person> writer) {
+                      JdbcBatchItemWriter<Customer> writer) {
         return new StepBuilder("step1", jobRepository)
-                .<Person, Person>chunk(10, transactionManager)
+                .<Customer, Customer>chunk(10, transactionManager)
                 .reader(reader())
-                .processor(processor())
+                .processor(customerProcessor())
                 .writer(writer)
                 .build();
     }
 
-    @Bean(name = "stepXml")
-    public Step stepXml(JobRepository jobRepository,
-                        PlatformTransactionManager transactionManager
-            , ItemWriter<Person> personItemWriterXml) {
-        return new StepBuilder("stepXml", jobRepository)
-                .<Person, Person>chunk(10, transactionManager)
-                .reader(reader())
-                .processor(processor())
-                .writer(personItemWriterXml)
-                .build();
-    }
+//    @Bean(name = "stepXml")
+//    public Step stepXml(JobRepository jobRepository,
+//                        PlatformTransactionManager transactionManager
+//            , ItemWriter<Person> personItemWriterXml) {
+//        return new StepBuilder("stepXml", jobRepository)
+//                .<Person, Person>chunk(10, transactionManager)
+//                .reader(reader())
+//                .processor(processor())
+//                .writer(personItemWriterXml)
+//                .build();
+//    }
 }
